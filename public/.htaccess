@@ -1,9 +1,33 @@
+# ---------------------------------------------------------------------------
+# CORS: allow the storefront, admin and RMS front-ends to read this API.
+# Dynamic (echoes the matching request Origin) so multiple front-ends work —
+# NOT a single hardcoded origin. Keep this the ONLY place CORS headers are set
+# for this host (remove any static "Access-Control-Allow-Origin" from the
+# server/vhost config, or it will override this).
+# ---------------------------------------------------------------------------
+<IfModule mod_setenvif.c>
+    SetEnvIf Origin "^https://((www\.)?genzfoods\.pk|admin\.genzfoods\.pk|rms\.genzfoods\.pk)$" GENZ_CORS_ORIGIN=$0
+    SetEnvIf Origin "^http://localhost:(4200|4300|3000)$" GENZ_CORS_ORIGIN=$0
+</IfModule>
+
+<IfModule mod_headers.c>
+    Header always set Access-Control-Allow-Origin "%{GENZ_CORS_ORIGIN}e" env=GENZ_CORS_ORIGIN
+    Header always set Access-Control-Allow-Methods "GET, POST, PUT, PATCH, DELETE, OPTIONS" env=GENZ_CORS_ORIGIN
+    Header always set Access-Control-Allow-Headers "Authorization, Content-Type, Accept, Origin, X-Requested-With, X-XSRF-Token" env=GENZ_CORS_ORIGIN
+    Header always set Access-Control-Max-Age "3600" env=GENZ_CORS_ORIGIN
+    Header merge Vary Origin
+</IfModule>
+
 <IfModule mod_rewrite.c>
     <IfModule mod_negotiation.c>
         Options -MultiViews -Indexes
     </IfModule>
 
     RewriteEngine On
+
+    # Answer CORS preflight (OPTIONS) with 200 and the headers above — no PHP.
+    RewriteCond %{REQUEST_METHOD} =OPTIONS
+    RewriteRule ^ - [R=200,L]
 
     # Handle Authorization Header
     RewriteCond %{HTTP:Authorization} .
