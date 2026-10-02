@@ -7,6 +7,7 @@ use App\Models\Category;
 use App\Services\ImageService;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\DB;
 use Illuminate\Support\Str;
 
 class CategoryController extends Controller
@@ -65,13 +66,31 @@ class CategoryController extends Controller
         return response()->json(null, 204);
     }
 
-    /** Persist a new ordering: body { slugs: [slug, ...] }. */
+    /**
+     * Persist a new ordering: body `{ slugs: [slug, ...] }`, position = index.
+     *
+     * The whole list is sent and rewritten, not a single moved item, so the
+     * result doesn't depend on what the client thought the old order was.
+     *
+     * **Transactional**, because a half-applied reorder is worse than a failed
+     * one: `sort_order` drives `MenuFeed`, so a run that died midway would leave
+     * customers looking at a menu with two categories claiming position 3 and
+     * nobody able to tell by looking that it was wrong.
+     */
     public function reorder(Request $request): JsonResponse
     {
-        $slugs = $request->validate(['slugs' => 'required|array'])['slugs'];
-        foreach ($slugs as $i => $slug) {
-            Category::where('slug', $slug)->update(['sort_order' => $i]);
-        }
+        $slugs = $request->validate([
+            'slugs'   => 'required|array',
+            'slugs.*' => 'required|string',
+        ])['slugs'];
+
+        DB::transaction(function () use ($slugs): void {
+            foreach (array_values($slugs) as $i => $slug) {
+                // A slug that no longer exists simply matches nothing — a stale
+                // tab reordering a category someone else deleted is not an error.
+                Category::where('slug', $slug)->update(['sort_order' => $i]);
+            }
+        });
 
         return response()->json(['ok' => true]);
     }
