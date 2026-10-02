@@ -88,7 +88,8 @@ class MenuItemController extends Controller
         $rules = [
             'category_id' => ($creating ? 'required|' : '').'exists:categories,id',
             'name' => ($creating ? 'required|' : '').'string|max:150',
-            'slug' => 'nullable|string|max:100',
+            // Lowercase-hyphen only: it becomes the image path menu/{category}/{slug}.webp.
+            'slug' => ['nullable', 'string', 'max:100', 'regex:/^[a-z0-9]+(-[a-z0-9]+)*$/'],
             'description' => 'nullable|string',
             'price_type' => 'nullable|in:single,sized',
             'price' => 'nullable|integer|min:0',
