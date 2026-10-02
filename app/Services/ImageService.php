@@ -2,11 +2,13 @@
 
 namespace App\Services;
 
+use Illuminate\Contracts\Filesystem\Filesystem;
 use Illuminate\Http\UploadedFile;
 use Illuminate\Support\Facades\Storage;
 use Intervention\Image\Drivers\Gd\Driver;
 use Intervention\Image\Encoders\WebpEncoder;
 use Intervention\Image\ImageManager;
+use RuntimeException;
 
 /**
  * Normalises and stores menu images at deterministic paths on the `menu` disk:
@@ -34,12 +36,23 @@ class ImageService
         $full = $this->manager->decodePath($path)
             ->scaleDown(width: 1000, height: 1000)
             ->encode(new WebpEncoder(quality: 82));
-        $disk->put("{$categorySlug}/{$slug}.webp", (string) $full);
+        $this->put($disk, "{$categorySlug}/{$slug}.webp", (string) $full);
 
         $thumb = $this->manager->decodePath($path)
             ->cover(400, 400)
             ->encode(new WebpEncoder(quality: 80));
-        $disk->put("{$categorySlug}/{$slug}-thumb.webp", (string) $thumb);
+        $this->put($disk, "{$categorySlug}/{$slug}-thumb.webp", (string) $thumb);
+    }
+
+    /**
+     * The `menu` disk doesn't throw, so a failed write (e.g. an unwritable public/menu on the
+     * server) would go unnoticed while the caller still bumps image_updated_at.
+     */
+    private function put(Filesystem $disk, string $path, string $contents): void
+    {
+        if (! $disk->put($path, $contents)) {
+            throw new RuntimeException("Could not write menu image to {$disk->path($path)}.");
+        }
     }
 
     /** Remove both webp renditions for a slug (e.g. on delete). */

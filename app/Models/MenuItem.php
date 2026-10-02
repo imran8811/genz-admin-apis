@@ -14,6 +14,9 @@ class MenuItem extends Model
     ];
 
     protected $casts = [
+        // Only the primary key is auto-cast; without this, PDO with emulated prepares
+        // (production) serialises the foreign key as a string.
+        'category_id' => 'integer',
         'prices' => 'array',
         'pizza_selection' => 'array',
         'deal_extras' => 'array',

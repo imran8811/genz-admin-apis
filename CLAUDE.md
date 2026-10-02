@@ -38,6 +38,11 @@ On upload, `App\Services\ImageService` writes normalized webp to the **`menu` di
 - `public/menu/{category}/{item}.webp` (display, ≤1000px) + `…-{item}-thumb.webp` (400×400).
 Served at the clean URL `{ADMIN_PUBLIC_URL}/menu/{category}/{item}.webp`. The public feed emits
 this URL with a cache-buster `?v={image_updated_at}` so re-uploads refresh everywhere.
+- The web server serves these as static files when it finds them; otherwise the request falls
+  through to the `GET /menu/{category}/{file}` route in `routes/web.php`, which serves the image
+  from the disk. This covers hosts whose document root isn't this app's `public/`.
+- A failed write throws (the disk itself is `throw => false`), so the upload returns 500 and
+  `image_updated_at` stays unchanged. Without this, the image would 404 with no error anywhere.
 
 ## Key classes
 - `app/Services/MenuFeed.php` — builds the public feed (canonical shape + image URLs).
